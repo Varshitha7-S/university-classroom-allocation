@@ -1,339 +1,176 @@
-# Data Dictionary — UniSpace University Classroom Allocation System
-
-**DBMS:** PostgreSQL  
-**Source:** `database/schema.sql`  
-**Related Documents:** [Relational Schema](Relational_Schema.md) · [ER Diagram](ER_Diagram.png)
-
-**Key Legend:**
-- PK – Primary Key
-- FK – Foreign Key
-- UK – Unique Key
-- NN – NOT NULL
-- CK – CHECK Constraint
-- IDENTITY – Automatically generated identifier
+# Data Dictionary – UniSpace
 
 ## 1. Introduction
 
-The UniSpace University Classroom Allocation System uses PostgreSQL to manage academic departments, users, faculty, classrooms, facilities, courses, course offerings, time slots and classroom allocations.
+The data dictionary describes the attributes, data types, constraints, and purpose of each relation in the UniSpace University Classroom Allocation System.
 
-This data dictionary documents the database tables, their attributes, data types, constraints and purposes. It also describes the views, stored procedure, functions, triggers and indexes used by the system.
+**Notation:**
+- PK – Primary Key
+- FK – Foreign Key
+- UQ – Unique
+- NN – NOT NULL
+- CK – Check Constraint
 
 ## 2. Table Definitions
 
-### 2.1 Departments
+### 2.1 DEPARTMENTS
 
-**Purpose:** Stores academic departments within the university.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| department_id | INT | PK, IDENTITY | Unique department identifier |
-| department_name | VARCHAR(100) | UK, NN | Name of the department |
+| department_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique department identifier |
+| department_name | VARCHAR(100) | NN, UQ | Name of the department |
 
-### 2.2 Users
+### 2.2 USERS
 
-**Purpose:** Stores user accounts and authentication information.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| user_id | INT | PK, IDENTITY | Unique user identifier |
-| name | VARCHAR(100) | NN | Full name of the user |
-| email | VARCHAR(150) | UK, NN | Unique login email address |
+| user_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique user identifier |
+| name | VARCHAR(100) | NN | User's full name |
+| email | VARCHAR(150) | NN, UQ | Unique email address |
 | password_hash | TEXT | NN | Hashed password |
 | role | VARCHAR(20) | NN, CK | User role: ADMIN or FACULTY |
 
-### 2.3 Faculty
+### 2.3 FACULTY
 
-**Purpose:** Stores faculty profiles and their department associations.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| faculty_id | INT | PK, IDENTITY | Unique faculty identifier |
-| user_id | INT | FK, UK, NN | References users(user_id) |
-| department_id | INT | FK, NN | References departments(department_id) |
+| faculty_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique faculty identifier |
+| user_id | INT | NN, FK, UQ | References the associated user account |
+| department_id | INT | NN, FK | References the faculty member's department |
 
-### 2.4 Classrooms
+### 2.4 CLASSROOMS
 
-**Purpose:** Stores classroom information, location and seating capacity.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| room_id | INT | PK, IDENTITY | Unique classroom identifier |
+| room_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique classroom identifier |
 | room_number | VARCHAR(20) | NN | Classroom number |
-| building | VARCHAR(100) | NN | Building containing the classroom |
-| floor | INT | NN, CK (>= 0) | Floor number |
-| capacity | INT | NN, CK (> 0) | Maximum classroom seating capacity |
+| building | VARCHAR(100) | NN | Building name |
+| floor | INT | NN, CK (floor >= 0) | Floor on which the classroom is located |
+| capacity | INT | NN, CK (capacity > 0) | Maximum seating capacity |
+| (building, room_number) | — | UQ | Prevents duplicate room numbers within a building |
 
-**Additional constraint:** `(building, room_number)` must be unique.
+### 2.5 FACILITIES
 
-### 2.5 Facilities
-
-**Purpose:** Maintains the list of available classroom facilities.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| facility_id | INT | PK, IDENTITY | Unique facility identifier |
-| facility_name | VARCHAR(100) | UK, NN | Name of the facility |
+| facility_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique facility identifier |
+| facility_name | VARCHAR(100) | NN, UQ | Name of the facility |
 
-### 2.6 Classroom_Facilities
+### 2.6 CLASSROOM_FACILITIES
 
-**Purpose:** Implements the many-to-many relationship between classrooms and facilities.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| room_id | INT | PK (part), FK | References classrooms(room_id) |
-| facility_id | INT | PK (part), FK | References facilities(facility_id) |
+| room_id | INT | PK, FK, NN | References CLASSROOMS; cascades on classroom deletion |
+| facility_id | INT | PK, FK, NN | References FACILITIES |
 
-**Additional constraints:**
-- Composite primary key: `(room_id, facility_id)`.
-- Deleting a classroom cascades to its classroom-facility associations.
-- The facility foreign key does not specify ON DELETE CASCADE.
+The composite primary key `(room_id, facility_id)` prevents the same facility from being assigned more than once to the same classroom.
 
-### 2.7 Courses
+### 2.7 COURSES
 
-**Purpose:** Stores course details and their associated departments.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| course_id | INT | PK, IDENTITY | Unique course identifier |
+| course_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique course identifier |
 | course_name | VARCHAR(150) | NN | Name of the course |
-| course_code | VARCHAR(20) | UK, NN | Unique course code |
-| department_id | INT | FK, NN | References departments(department_id) |
+| course_code | VARCHAR(20) | NN, UQ | Unique course code |
+| department_id | INT | NN, FK | Department offering the course |
 
-### 2.8 Course_Offerings
+### 2.8 COURSE_OFFERINGS
 
-**Purpose:** Stores courses offered by faculty members for specific semesters and academic years.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| offering_id | INT | PK, IDENTITY | Unique course offering identifier |
-| course_id | INT | FK, NN | References courses(course_id) |
-| faculty_id | INT | FK, NN | References faculty(faculty_id) |
-| expected_strength | INT | NN, CK (> 0) | Expected number of students |
-| semester | VARCHAR(30) | NN | Academic semester |
-| academic_year | VARCHAR(20) | NN | Academic year |
+| offering_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique course offering identifier |
+| course_id | INT | NN, FK | References the course |
+| faculty_id | INT | NN, FK | References the assigned faculty member |
+| expected_strength | INT | NN, CK (expected_strength > 0) | Expected number of students |
+| semester | VARCHAR(30) | NN | Semester in which the course is offered |
+| academic_year | VARCHAR(20) | NN | Academic year of the offering |
 
-### 2.9 Offering_Required_Facilities
+### 2.9 OFFERING_REQUIRED_FACILITIES
 
-**Purpose:** Stores the facilities required by individual course offerings.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| offering_id | INT | PK (part), FK | References course_offerings(offering_id) |
-| facility_id | INT | PK (part), FK | References facilities(facility_id) |
+| offering_id | INT | PK, FK, NN | References COURSE_OFFERINGS; cascades on offering deletion |
+| facility_id | INT | PK, FK, NN | References FACILITIES |
 
-**Additional constraints:**
-- Composite primary key: `(offering_id, facility_id)`.
-- Deleting a course offering cascades to its required-facility associations.
-- The facility foreign key does not specify ON DELETE CASCADE.
+The composite primary key `(offering_id, facility_id)` prevents duplicate facility requirements for the same offering.
 
-### 2.10 Time_Slots
+### 2.10 TIME_SLOTS
 
-**Purpose:** Stores the available time intervals for classroom scheduling.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| slot_id | INT | PK, IDENTITY | Unique time-slot identifier |
+| slot_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique time slot identifier |
 | start_time | TIME | NN | Starting time of the slot |
-| end_time | TIME | NN, CK | Ending time of the slot |
+| end_time | TIME | NN, CK (end_time > start_time) | Ending time of the slot |
+| (start_time, end_time) | — | UQ | Prevents duplicate time-slot ranges |
 
-**Additional constraints:**
-- `end_time > start_time`.
-- `(start_time, end_time)` must be unique.
+### 2.11 ALLOCATIONS
 
-### 2.11 Allocations
-
-**Purpose:** Stores classroom allocation records connecting course offerings, classrooms and time slots.
-
-| Column | Data Type | Constraints | Description |
+| Attribute | Data type | Constraints | Description |
 |---|---|---|---|
-| allocation_id | INT | PK, IDENTITY | Unique allocation identifier |
-| offering_id | INT | FK, NN | References course_offerings(offering_id) |
-| room_id | INT | FK, NN | References classrooms(room_id) |
-| slot_id | INT | FK, NN | References time_slots(slot_id) |
-| day_of_week | VARCHAR(15) | NN, CK | Scheduled day from Monday to Saturday |
-| allocation_date | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Date and time when allocation record is created |
+| allocation_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique allocation identifier |
+| offering_id | INT | NN, FK | References COURSE_OFFERINGS |
+| room_id | INT | NN, FK | References CLASSROOMS |
+| slot_id | INT | NN, FK | References TIME_SLOTS |
+| day_of_week | VARCHAR(15) | NN, CK | Day of the week: Monday to Saturday |
+| allocation_date | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP, nullable | Date and time when the allocation record is created |
+| (room_id, slot_id, day_of_week) | — | UQ | Prevents the same classroom from being allocated twice for the same slot and day |
+| (offering_id, slot_id, day_of_week) | — | UQ | Prevents the same offering from being allocated twice for the same slot and day |
 
-**Additional constraints:**
-- `(room_id, slot_id, day_of_week)` must be unique.
-- `(offering_id, slot_id, day_of_week)` must be unique.
-- The day must be Monday, Tuesday, Wednesday, Thursday, Friday or Saturday.
+## 3. Foreign Key Reference Summary
 
-## 3. Relationship Summary
-
-| Parent Table | Child Table | Relationship |
-|---|---|---|
-| Departments | Faculty | One-to-Many |
-| Departments | Courses | One-to-Many |
-| Users | Faculty | One-to-One (optional faculty record) |
-| Courses | Course_Offerings | One-to-Many |
-| Faculty | Course_Offerings | One-to-Many |
-| Classrooms | Classroom_Facilities | One-to-Many |
-| Facilities | Classroom_Facilities | One-to-Many |
-| Course_Offerings | Offering_Required_Facilities | One-to-Many |
-| Facilities | Offering_Required_Facilities | One-to-Many |
-| Classrooms | Allocations | One-to-Many |
-| Course_Offerings | Allocations | One-to-Many |
-| Time_Slots | Allocations | One-to-Many |
-
-The junction tables `classroom_facilities` and `offering_required_facilities` implement the many-to-many relationships.
-
-## 4. Views
-
-### 4.1 classroom_timetable
-
-**Purpose:** Provides a readable timetable by joining allocation, course, faculty, classroom and time-slot information.
-
-| Column | Source | Description |
-|---|---|---|
-| allocation_id | allocations | Allocation identifier |
-| day_of_week | allocations | Scheduled weekday |
-| course_code | courses | Course code |
-| course_name | courses | Course title |
-| faculty_name | users.name | Teaching faculty member |
-| room_number | classrooms | Classroom number |
-| building | classrooms | Building name |
-| capacity | classrooms | Classroom capacity |
-| expected_strength | course_offerings | Expected student strength |
-| start_time | time_slots | Slot start time |
-| end_time | time_slots | Slot end time |
-
-### 4.2 classroom_utilization
-
-**Purpose:** Calculates the number of allocations and average utilization percentage for every classroom, including classrooms without allocations.
-
-| Column | Source | Description |
-|---|---|---|
-| room_id | classrooms | Classroom identifier |
-| room_number | classrooms | Classroom number |
-| building | classrooms | Building name |
-| capacity | classrooms | Classroom capacity |
-| total_allocations | COUNT(allocation_id) | Total allocations for the classroom |
-| average_utilization_percentage | Calculated | Average student-strength-to-capacity percentage, rounded to two decimal places; zero when no allocations exist |
-
-**Verification note:** The `advanced.sql` definition names the final view column `average_utilization_percentage`, while the live PostgreSQL query displayed `average_capacity_utilization`. Confirm the deployed view definition before treating these column names as identical.
-
-## 5. Stored Procedure and Functions
-
-| Name | Type | Parameters | Returns | Description |
-|---|---|---|---|---|
-| `allocate_classroom` | Stored Procedure | `p_offering_id INTEGER`, `p_room_id INTEGER`, `p_slot_id INTEGER`, `p_day_of_week VARCHAR(20)` | None | Inserts a classroom allocation; trigger validation applies |
-| `get_classroom_utilization` | Function | `p_room_id INTEGER` | NUMERIC | Returns the average utilization percentage for a specified classroom |
-
-### Trigger Function
-
-| Name | Type | Returns | Description |
+| Foreign key | Referenced table | Referenced attribute | Delete action |
 |---|---|---|---|
-| `validate_classroom_allocation` | Trigger Function | TRIGGER | Validates allocation capacity, facilities and scheduling conflicts before allocation changes |
+| FACULTY.user_id | USERS | user_id | NO ACTION |
+| FACULTY.department_id | DEPARTMENTS | department_id | NO ACTION |
+| CLASSROOM_FACILITIES.room_id | CLASSROOMS | room_id | CASCADE |
+| CLASSROOM_FACILITIES.facility_id | FACILITIES | facility_id | NO ACTION |
+| COURSES.department_id | DEPARTMENTS | department_id | NO ACTION |
+| COURSE_OFFERINGS.course_id | COURSES | course_id | NO ACTION |
+| COURSE_OFFERINGS.faculty_id | FACULTY | faculty_id | NO ACTION |
+| OFFERING_REQUIRED_FACILITIES.offering_id | COURSE_OFFERINGS | offering_id | CASCADE |
+| OFFERING_REQUIRED_FACILITIES.facility_id | FACILITIES | facility_id | NO ACTION |
+| ALLOCATIONS.offering_id | COURSE_OFFERINGS | offering_id | NO ACTION |
+| ALLOCATIONS.room_id | CLASSROOMS | room_id | NO ACTION |
+| ALLOCATIONS.slot_id | TIME_SLOTS | slot_id | NO ACTION |
 
-## 6. Trigger
+## 4. Database Objects
 
-### trg_validate_classroom_allocation
+| Object type | Object name | Purpose |
+|---|---|---|
+| View | classroom_timetable | Presents classroom timetable information |
+| View | classroom_utilization | Provides classroom utilization information |
+| Stored procedure | allocate_classroom | Performs classroom allocation operations |
+| Function | get_classroom_utilization | Retrieves classroom utilization information |
+| Trigger function | validate_classroom_allocation | Validates allocation rules |
+| Trigger | trg_validate_classroom_allocation | Executes validation before INSERT or UPDATE on ALLOCATIONS |
 
-| Property | Definition |
-|---|---|
-| Trigger name | trg_validate_classroom_allocation |
-| Table | allocations |
-| Timing | BEFORE |
-| Events | INSERT OR UPDATE |
-| Execution | FOR EACH ROW |
-| Function | validate_classroom_allocation() |
+## 5. Indexes
 
-**Purpose:** Enforces business rules before an allocation is inserted or updated.
+| Index name | Table | Purpose |
+|---|---|---|
+| idx_allocations_room_day_slot | ALLOCATIONS | Supports room, day, and slot lookups |
+| idx_allocations_offering | ALLOCATIONS | Supports offering-based allocation lookups |
+| idx_allocations_slot | ALLOCATIONS | Supports time-slot lookups |
+| idx_course_offerings_faculty | COURSE_OFFERINGS | Supports faculty-based offering lookups |
+| idx_courses_department | COURSES | Supports department-based course lookups |
+| idx_classrooms_capacity | CLASSROOMS | Supports classroom capacity filtering |
 
-The trigger performs the following validations:
+## 6. Data Integrity Rules
 
-1. Checks whether the course offering exists.
-2. Checks whether the classroom exists.
-3. Checks whether the time slot exists.
-4. Verifies that classroom capacity is sufficient for expected student strength.
-5. Verifies that all facilities required by the offering are available in the classroom.
-6. Prevents overlapping allocations in the same classroom on the same day.
-7. Prevents overlapping allocations for the same faculty member on the same day.
-8. Uses `pg_advisory_xact_lock(20261115, 1)` to serialize allocation writes during validation.
+The database enforces the following rules:
 
-### Trigger Error Messages
+1. Every primary key uniquely identifies a record.
+2. Foreign keys maintain relationships between tables.
+3. Email addresses, department names, facility names, course codes, and specified combinations are unique.
+4. User roles are restricted to ADMIN and FACULTY.
+5. Classroom floor numbers cannot be negative.
+6. Classroom capacity and expected student strength must be greater than zero.
+7. A time slot must have an ending time later than its starting time.
+8. Allocation days are restricted to Monday through Saturday.
+9. A classroom cannot be assigned to two allocations for the same time slot and day.
+10. A course offering cannot be assigned to two allocations for the same time slot and day.
+11. The allocation trigger performs additional validation of capacity, required facilities, and scheduling conflicts.
 
-| Condition | Error Message |
-|---|---|
-| Offering not found | Course offering does not exist |
-| Classroom not found | Classroom does not exist |
-| Time slot not found | Time slot does not exist |
-| Insufficient capacity | Insufficient classroom capacity. Required: n, Available: m |
-| Missing facilities | Classroom does not have all facilities required by this course |
-| Room conflict | Classroom is already allocated during this time |
-| Faculty conflict | Faculty member already has a class during this time |
+## 7. Conclusion
 
-## 7. Indexes
-
-Primary-key and UNIQUE constraints create their associated indexes automatically.
-
-The following additional indexes are defined in `database/advanced.sql`.
-
-| Index | Table | Columns | Purpose |
-|---|---|---|---|
-| idx_allocations_room_day_slot | allocations | room_id, day_of_week, slot_id | Room availability and conflict checks |
-| idx_allocations_offering | allocations | offering_id | Allocation lookups by offering |
-| idx_allocations_slot | allocations | slot_id | Joins with time slots |
-| idx_course_offerings_faculty | course_offerings | faculty_id | Faculty timetable and conflict checks |
-| idx_courses_department | courses | department_id | Listing courses by department |
-| idx_classrooms_capacity | classrooms | capacity | Finding classrooms by minimum capacity |
-
-## 8. Sample Data and Database Verification
-
-The initial seed script populates the database with the following records.
-
-| Table | Initial Seed Records |
-|---|---:|
-| departments | 3 |
-| users | 3 |
-| faculty | 2 |
-| classrooms | 5 |
-| facilities | 4 |
-| courses | 4 |
-| course_offerings | 4 |
-| time_slots | 6 |
-| allocations | 0 |
-
-The seed script does not insert any allocation records.
-
-### Current Database State
-
-A live PostgreSQL query was executed to verify the current allocation count and classroom utilization.
-
-**Current allocation count: 1**
-
-| Classroom | Capacity | Total Allocations | Utilization |
-|---|---:|---:|---:|
-| A101 | 40 | 0 | 0% |
-| A102 | 70 | 1 | 64.29% |
-| A103 | 100 | 0 | 0% |
-| B201 | 80 | 0 | 0% |
-| B202 | 60 | 0 | 0% |
-
-The current database therefore contains one allocation associated with classroom A102. Its utilization is 64.29%.
-
-## 9. Data Integrity and Validation
-
-The database maintains consistency through:
-
-1. **Entity Integrity:** Primary keys uniquely identify records.
-2. **Referential Integrity:** Foreign keys maintain relationships between tables.
-3. **Domain Integrity:** CHECK constraints restrict invalid values.
-4. **Uniqueness:** UNIQUE constraints prevent duplicate values and allocation combinations.
-5. **Automatic Identification:** Identity columns generate identifiers automatically.
-6. **Default Values:** Allocation timestamps use `CURRENT_TIMESTAMP` when no value is supplied.
-7. **Business Rule Validation:** Triggers validate capacity, facilities and scheduling conflicts.
-
-## 10. Conclusion
-
-The UniSpace data dictionary provides a comprehensive reference for all 11 relational tables and their associated database objects.
-
-It documents the attributes, data types, constraints, relationships, views, stored procedures, functions, triggers and indexes used to implement the university classroom allocation system.
-
-**Implementation references:**
-- `database/schema.sql`
-- `database/seed.sql`
-- `database/advanced.sql`
-- `database/functions.sql`
-- `database/procedures.sql`
-- `database/triggers.sql`
+The data dictionary documents all 11 relations in the UniSpace database, including their attributes, data types, keys, constraints, and relationships. It serves as a reference for database implementation, maintenance, and further development.
