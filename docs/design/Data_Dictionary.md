@@ -1,176 +1,235 @@
-# Data Dictionary – UniSpace
+# Data Dictionary — UniSpace University Classroom Allocation System
+
+**Database:** `classroom_allocation`  
+**DBMS:** PostgreSQL  
+**Source:** `database/schema.sql`  
+**Related Documents:** [Relational Schema](Relational_Schema.md) · [ER Diagram](ER_Diagram.png)
 
 ## 1. Introduction
 
-The data dictionary describes the attributes, data types, constraints, and purpose of each relation in the UniSpace University Classroom Allocation System.
+A data dictionary provides a detailed description of the tables, attributes, data types, constraints and relationships used in the UniSpace University Classroom Allocation System.
 
-**Notation:**
-- PK – Primary Key
-- FK – Foreign Key
-- UQ – Unique
-- NN – NOT NULL
-- CK – Check Constraint
+The database consists of 11 tables that store information about departments, users, faculty, classrooms, facilities, courses, course offerings, time slots and classroom allocations.
 
 ## 2. Table Definitions
 
 ### 2.1 DEPARTMENTS
 
-| Attribute | Data type | Constraints | Description |
+**Purpose:** Stores the departments available in the university.
+
+| Attribute | Data Type | Constraints | Description |
 |---|---|---|---|
-| department_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique department identifier |
-| department_name | VARCHAR(100) | NN, UQ | Name of the department |
+| department_id | INT | PK, Identity | Unique identifier for each department |
+| department_name | VARCHAR(100) | UNIQUE, NOT NULL | Name of the department |
 
 ### 2.2 USERS
 
-| Attribute | Data type | Constraints | Description |
+**Purpose:** Stores login and account information for administrators and faculty members.
+
+| Attribute | Data Type | Constraints | Description |
 |---|---|---|---|
-| user_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique user identifier |
-| name | VARCHAR(100) | NN | User's full name |
-| email | VARCHAR(150) | NN, UQ | Unique email address |
-| password_hash | TEXT | NN | Hashed password |
-| role | VARCHAR(20) | NN, CK | User role: ADMIN or FACULTY |
+| user_id | INT | PK, Identity | Unique identifier for each user |
+| name | VARCHAR(100) | NOT NULL | Full name of the user |
+| email | VARCHAR(150) | UNIQUE, NOT NULL | Email address used for login |
+| password_hash | TEXT | NOT NULL | Hashed password of the user |
+| role | VARCHAR(20) | NOT NULL, CHECK | User role: ADMIN or FACULTY |
 
 ### 2.3 FACULTY
 
-| Attribute | Data type | Constraints | Description |
+**Purpose:** Stores faculty-specific information and connects faculty members to their user accounts and departments.
+
+| Attribute | Data Type | Constraints | Description |
 |---|---|---|---|
-| faculty_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique faculty identifier |
-| user_id | INT | NN, FK, UQ | References the associated user account |
-| department_id | INT | NN, FK | References the faculty member's department |
+| faculty_id | INT | PK, Identity | Unique identifier for each faculty member |
+| user_id | INT | FK, UNIQUE, NOT NULL | References USERS(user_id) |
+| department_id | INT | FK, NOT NULL | References DEPARTMENTS(department_id) |
 
 ### 2.4 CLASSROOMS
 
-| Attribute | Data type | Constraints | Description |
+**Purpose:** Stores information about classrooms available for allocation.
+
+| Attribute | Data Type | Constraints | Description |
 |---|---|---|---|
-| room_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique classroom identifier |
-| room_number | VARCHAR(20) | NN | Classroom number |
-| building | VARCHAR(100) | NN | Building name |
-| floor | INT | NN, CK (floor >= 0) | Floor on which the classroom is located |
-| capacity | INT | NN, CK (capacity > 0) | Maximum seating capacity |
-| (building, room_number) | — | UQ | Prevents duplicate room numbers within a building |
+| room_id | INT | PK, Identity | Unique identifier for each classroom |
+| room_number | VARCHAR(20) | NOT NULL | Room number |
+| building | VARCHAR(100) | NOT NULL | Building in which the classroom is located |
+| floor | INT | NOT NULL, CHECK | Floor number; must be non-negative |
+| capacity | INT | NOT NULL, CHECK | Maximum seating capacity; must be positive |
+
+**Additional Constraint:** `(building, room_number)` must be unique.
 
 ### 2.5 FACILITIES
 
-| Attribute | Data type | Constraints | Description |
+**Purpose:** Stores the facilities and equipment that can be available in classrooms.
+
+| Attribute | Data Type | Constraints | Description |
 |---|---|---|---|
-| facility_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique facility identifier |
-| facility_name | VARCHAR(100) | NN, UQ | Name of the facility |
+| facility_id | INT | PK, Identity | Unique identifier for each facility |
+| facility_name | VARCHAR(100) | UNIQUE, NOT NULL | Name of the facility, such as Projector or Smart Board |
 
 ### 2.6 CLASSROOM_FACILITIES
 
-| Attribute | Data type | Constraints | Description |
-|---|---|---|---|
-| room_id | INT | PK, FK, NN | References CLASSROOMS; cascades on classroom deletion |
-| facility_id | INT | PK, FK, NN | References FACILITIES |
+**Purpose:** Implements the many-to-many relationship between classrooms and facilities.
 
-The composite primary key `(room_id, facility_id)` prevents the same facility from being assigned more than once to the same classroom.
+| Attribute | Data Type | Constraints | Description |
+|---|---|---|---|
+| room_id | INT | Composite PK, FK | References CLASSROOMS(room_id) |
+| facility_id | INT | Composite PK, FK | References FACILITIES(facility_id) |
+
+**Additional Constraints:**
+- Composite Primary Key: `(room_id, facility_id)`.
+- Deleting a classroom automatically deletes its associated classroom-facility records through ON DELETE CASCADE.
+- Both columns are implicitly NOT NULL because they form the composite primary key.
 
 ### 2.7 COURSES
 
-| Attribute | Data type | Constraints | Description |
+**Purpose:** Stores the courses offered by different university departments.
+
+| Attribute | Data Type | Constraints | Description |
 |---|---|---|---|
-| course_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique course identifier |
-| course_name | VARCHAR(150) | NN | Name of the course |
-| course_code | VARCHAR(20) | NN, UQ | Unique course code |
-| department_id | INT | NN, FK | Department offering the course |
+| course_id | INT | PK, Identity | Unique identifier for each course |
+| course_name | VARCHAR(150) | NOT NULL | Name of the course |
+| course_code | VARCHAR(20) | UNIQUE, NOT NULL | Unique course code |
+| department_id | INT | FK, NOT NULL | References DEPARTMENTS(department_id) |
 
 ### 2.8 COURSE_OFFERINGS
 
-| Attribute | Data type | Constraints | Description |
+**Purpose:** Stores individual course offerings assigned to faculty members for a particular semester and academic year.
+
+| Attribute | Data Type | Constraints | Description |
 |---|---|---|---|
-| offering_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique course offering identifier |
-| course_id | INT | NN, FK | References the course |
-| faculty_id | INT | NN, FK | References the assigned faculty member |
-| expected_strength | INT | NN, CK (expected_strength > 0) | Expected number of students |
-| semester | VARCHAR(30) | NN | Semester in which the course is offered |
-| academic_year | VARCHAR(20) | NN | Academic year of the offering |
+| offering_id | INT | PK, Identity | Unique identifier for each course offering |
+| course_id | INT | FK, NOT NULL | References COURSES(course_id) |
+| faculty_id | INT | FK, NOT NULL | References FACULTY(faculty_id) |
+| expected_strength | INT | NOT NULL, CHECK | Expected number of students; must be positive |
+| semester | VARCHAR(30) | NOT NULL | Semester in which the course is offered |
+| academic_year | VARCHAR(20) | NOT NULL | Academic year of the offering |
 
 ### 2.9 OFFERING_REQUIRED_FACILITIES
 
-| Attribute | Data type | Constraints | Description |
-|---|---|---|---|
-| offering_id | INT | PK, FK, NN | References COURSE_OFFERINGS; cascades on offering deletion |
-| facility_id | INT | PK, FK, NN | References FACILITIES |
+**Purpose:** Implements the many-to-many relationship between course offerings and the facilities required for conducting them.
 
-The composite primary key `(offering_id, facility_id)` prevents duplicate facility requirements for the same offering.
+| Attribute | Data Type | Constraints | Description |
+|---|---|---|---|
+| offering_id | INT | Composite PK, FK | References COURSE_OFFERINGS(offering_id) |
+| facility_id | INT | Composite PK, FK | References FACILITIES(facility_id) |
+
+**Additional Constraints:**
+- Composite Primary Key: `(offering_id, facility_id)`.
+- Deleting a course offering automatically deletes its associated required-facility records through ON DELETE CASCADE.
+- Both columns are implicitly NOT NULL because they form the composite primary key.
 
 ### 2.10 TIME_SLOTS
 
-| Attribute | Data type | Constraints | Description |
+**Purpose:** Stores the available time slots used for scheduling classroom allocations.
+
+| Attribute | Data Type | Constraints | Description |
 |---|---|---|---|
-| slot_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique time slot identifier |
-| start_time | TIME | NN | Starting time of the slot |
-| end_time | TIME | NN, CK (end_time > start_time) | Ending time of the slot |
-| (start_time, end_time) | — | UQ | Prevents duplicate time-slot ranges |
+| slot_id | INT | PK, Identity | Unique identifier for each time slot |
+| start_time | TIME | NOT NULL | Starting time of the slot |
+| end_time | TIME | NOT NULL, CHECK | Ending time of the slot; must be later than start_time |
+
+**Additional Constraint:** `(start_time, end_time)` must be unique.
 
 ### 2.11 ALLOCATIONS
 
-| Attribute | Data type | Constraints | Description |
+**Purpose:** Stores classroom allocation records that connect course offerings, classrooms and time slots for specific days.
+
+| Attribute | Data Type | Constraints | Description |
 |---|---|---|---|
-| allocation_id | INT | PK, GENERATED ALWAYS AS IDENTITY | Unique allocation identifier |
-| offering_id | INT | NN, FK | References COURSE_OFFERINGS |
-| room_id | INT | NN, FK | References CLASSROOMS |
-| slot_id | INT | NN, FK | References TIME_SLOTS |
-| day_of_week | VARCHAR(15) | NN, CK | Day of the week: Monday to Saturday |
-| allocation_date | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP, nullable | Date and time when the allocation record is created |
-| (room_id, slot_id, day_of_week) | — | UQ | Prevents the same classroom from being allocated twice for the same slot and day |
-| (offering_id, slot_id, day_of_week) | — | UQ | Prevents the same offering from being allocated twice for the same slot and day |
+| allocation_id | INT | PK, Identity | Unique identifier for each allocation |
+| offering_id | INT | FK, NOT NULL | References COURSE_OFFERINGS(offering_id) |
+| room_id | INT | FK, NOT NULL | References CLASSROOMS(room_id) |
+| slot_id | INT | FK, NOT NULL | References TIME_SLOTS(slot_id) |
+| day_of_week | VARCHAR(15) | NOT NULL, CHECK | Day of the allocation: Monday to Saturday |
+| allocation_date | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Date and time when the allocation record is created; nullable |
 
-## 3. Foreign Key Reference Summary
+**Additional Constraints:**
+- `(room_id, slot_id, day_of_week)` must be unique to prevent duplicate classroom allocations for the same slot and day.
+- `(offering_id, slot_id, day_of_week)` must be unique to prevent duplicate allocations of the same offering for the same slot and day.
 
-| Foreign key | Referenced table | Referenced attribute | Delete action |
-|---|---|---|---|
-| FACULTY.user_id | USERS | user_id | NO ACTION |
-| FACULTY.department_id | DEPARTMENTS | department_id | NO ACTION |
-| CLASSROOM_FACILITIES.room_id | CLASSROOMS | room_id | CASCADE |
-| CLASSROOM_FACILITIES.facility_id | FACILITIES | facility_id | NO ACTION |
-| COURSES.department_id | DEPARTMENTS | department_id | NO ACTION |
-| COURSE_OFFERINGS.course_id | COURSES | course_id | NO ACTION |
-| COURSE_OFFERINGS.faculty_id | FACULTY | faculty_id | NO ACTION |
-| OFFERING_REQUIRED_FACILITIES.offering_id | COURSE_OFFERINGS | offering_id | CASCADE |
-| OFFERING_REQUIRED_FACILITIES.facility_id | FACILITIES | facility_id | NO ACTION |
-| ALLOCATIONS.offering_id | COURSE_OFFERINGS | offering_id | NO ACTION |
-| ALLOCATIONS.room_id | CLASSROOMS | room_id | NO ACTION |
-| ALLOCATIONS.slot_id | TIME_SLOTS | slot_id | NO ACTION |
+## 3. Primary Key Summary
 
-## 4. Database Objects
+| Table | Primary Key |
+|---|---|
+| DEPARTMENTS | department_id |
+| USERS | user_id |
+| FACULTY | faculty_id |
+| CLASSROOMS | room_id |
+| FACILITIES | facility_id |
+| CLASSROOM_FACILITIES | room_id, facility_id |
+| COURSES | course_id |
+| COURSE_OFFERINGS | offering_id |
+| OFFERING_REQUIRED_FACILITIES | offering_id, facility_id |
+| TIME_SLOTS | slot_id |
+| ALLOCATIONS | allocation_id |
 
-| Object type | Object name | Purpose |
+## 4. Foreign Key Summary
+
+| Table | Foreign Key | References |
 |---|---|---|
-| View | classroom_timetable | Presents classroom timetable information |
-| View | classroom_utilization | Provides classroom utilization information |
-| Stored procedure | allocate_classroom | Performs classroom allocation operations |
-| Function | get_classroom_utilization | Retrieves classroom utilization information |
-| Trigger function | validate_classroom_allocation | Validates allocation rules |
-| Trigger | trg_validate_classroom_allocation | Executes validation before INSERT or UPDATE on ALLOCATIONS |
+| FACULTY | user_id | USERS(user_id) |
+| FACULTY | department_id | DEPARTMENTS(department_id) |
+| CLASSROOM_FACILITIES | room_id | CLASSROOMS(room_id) |
+| CLASSROOM_FACILITIES | facility_id | FACILITIES(facility_id) |
+| COURSES | department_id | DEPARTMENTS(department_id) |
+| COURSE_OFFERINGS | course_id | COURSES(course_id) |
+| COURSE_OFFERINGS | faculty_id | FACULTY(faculty_id) |
+| OFFERING_REQUIRED_FACILITIES | offering_id | COURSE_OFFERINGS(offering_id) |
+| OFFERING_REQUIRED_FACILITIES | facility_id | FACILITIES(facility_id) |
+| ALLOCATIONS | offering_id | COURSE_OFFERINGS(offering_id) |
+| ALLOCATIONS | room_id | CLASSROOMS(room_id) |
+| ALLOCATIONS | slot_id | TIME_SLOTS(slot_id) |
 
-## 5. Indexes
+## 5. Relationship Summary
 
-| Index name | Table | Purpose |
+| Parent Table | Child Table | Relationship |
 |---|---|---|
-| idx_allocations_room_day_slot | ALLOCATIONS | Supports room, day, and slot lookups |
-| idx_allocations_offering | ALLOCATIONS | Supports offering-based allocation lookups |
-| idx_allocations_slot | ALLOCATIONS | Supports time-slot lookups |
-| idx_course_offerings_faculty | COURSE_OFFERINGS | Supports faculty-based offering lookups |
-| idx_courses_department | COURSES | Supports department-based course lookups |
-| idx_classrooms_capacity | CLASSROOMS | Supports classroom capacity filtering |
+| DEPARTMENTS | FACULTY | One-to-Many |
+| DEPARTMENTS | COURSES | One-to-Many |
+| USERS | FACULTY | One-to-Zero-or-One |
+| COURSES | COURSE_OFFERINGS | One-to-Many |
+| FACULTY | COURSE_OFFERINGS | One-to-Many |
+| CLASSROOMS | CLASSROOM_FACILITIES | One-to-Many |
+| FACILITIES | CLASSROOM_FACILITIES | One-to-Many |
+| COURSE_OFFERINGS | OFFERING_REQUIRED_FACILITIES | One-to-Many |
+| FACILITIES | OFFERING_REQUIRED_FACILITIES | One-to-Many |
+| CLASSROOMS | ALLOCATIONS | One-to-Many |
+| COURSE_OFFERINGS | ALLOCATIONS | One-to-Many |
+| TIME_SLOTS | ALLOCATIONS | One-to-Many |
 
-## 6. Data Integrity Rules
+`CLASSROOM_FACILITIES` and `OFFERING_REQUIRED_FACILITIES` are associative tables that implement many-to-many relationships.
 
-The database enforces the following rules:
+## 6. Database Objects
 
-1. Every primary key uniquely identifies a record.
-2. Foreign keys maintain relationships between tables.
-3. Email addresses, department names, facility names, course codes, and specified combinations are unique.
-4. User roles are restricted to ADMIN and FACULTY.
-5. Classroom floor numbers cannot be negative.
-6. Classroom capacity and expected student strength must be greater than zero.
-7. A time slot must have an ending time later than its starting time.
-8. Allocation days are restricted to Monday through Saturday.
-9. A classroom cannot be assigned to two allocations for the same time slot and day.
-10. A course offering cannot be assigned to two allocations for the same time slot and day.
-11. The allocation trigger performs additional validation of capacity, required facilities, and scheduling conflicts.
+In addition to the 11 base tables, the database uses the following advanced objects.
 
-## 7. Conclusion
+| Object Name | Object Type | Purpose |
+|---|---|---|
+| classroom_timetable | View | Provides combined timetable information |
+| classroom_utilization | View | Provides classroom utilization information |
+| allocate_classroom | Stored Procedure | Performs classroom allocation |
+| get_classroom_utilization | Function | Calculates classroom utilization |
+| validate_classroom_allocation | Trigger Function | Validates allocation rules |
+| trg_validate_classroom_allocation | Trigger | Executes validation before allocation INSERT or UPDATE |
 
-The data dictionary documents all 11 relations in the UniSpace database, including their attributes, data types, keys, constraints, and relationships. It serves as a reference for database implementation, maintenance, and further development.
+## 7. Indexes
+
+The database includes additional indexes to improve query performance.
+
+| Index Name | Table | Columns |
+|---|---|---|
+| idx_allocations_room_day_slot | allocations | room_id, day_of_week, slot_id |
+| idx_allocations_offering | allocations | offering_id |
+| idx_allocations_slot | allocations | slot_id |
+| idx_course_offerings_faculty | course_offerings | faculty_id |
+| idx_courses_department | courses | department_id |
+| idx_classrooms_capacity | classrooms | capacity |
+
+Primary-key and unique constraints also create their associated indexes automatically.
+
+## 8. Conclusion
+
+The UniSpace Data Dictionary documents the structure and purpose of all 11 database tables, including their attributes, data types, primary keys, foreign keys, uniqueness constraints and domain constraints.
+
+It serves as a reference for understanding the database design and supports database development, maintenance and documentation.
